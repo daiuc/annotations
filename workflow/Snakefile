@@ -1,0 +1,109 @@
+'''
+Rules to generate annotation files
+'''
+
+
+#-------------------------------------------------------------------------------
+#        Download GTF
+#-------------------------------------------------------------------------------
+
+rule Download_HG38_v43:
+    '''
+    Comprehensive gene annotation; PRI; 
+    It contains the comprehensive gene annotation on the primary assembly 
+    (chromosomes and scaffolds) sequence regions
+    
+    Needs external internet!
+    '''
+    output: 'hg38/gencode.v43.primary_assembly.annotation.gtf.gz'
+    params:
+        url = 'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.primary_assembly.annotation.gtf.gz'
+    shell:
+        '''
+        if [[ $(hostname) =~ .*login.* ]]; then
+            echo "download {output} from {params.url}"
+            curl -L {params.url} -o {output} -v
+        else
+            echo "Only download in login node" >&2
+        fi
+
+        '''
+
+
+#-------------------------------------------------------------------------------
+#        Use gtftk
+#-------------------------------------------------------------------------------
+
+rule Extract_transcripts_with_gtftk:
+    '''
+    Extract transcripts using gtftk
+    require tag "basic"
+    '''
+    input: rules.Download_HG38_v43.output
+    output: 'hg38/use_gtftk/gencode_v43_basic.transcript.bed.gz'
+    conda: 'gtftk'
+    shell:
+        '''
+        gtftk select_by_key -i {input} -k tag -v basic |\
+            gtftk select_by_key -k feature -v transcript --bed-format \
+                --names gene_id,transcript_id,gene_name,gene_type |\
+            bgzip -c > {output}
+        '''
+
+
+rule Extract_introns_with_gtftk:
+    '''
+    Extract introns per transcript using gtftk
+    require tag "basic"
+    '''
+    input: rules.Download_HG38_v43.output
+    output: 'hg38/use_gtftk/gencode_v43_basic.intron_by_transcript.bed.gz'
+    conda: 'gtftk'
+    shell:
+        '''
+        gtftk select_by_key -i {input} -k tag -v basic |\
+            gtftk intronic --by-transcript -n gene_id,transcript_id,gene_name,gene_type |\
+            bgzip -c > {output}
+        '''
+
+
+rule Extract_exons_with_gtftk:
+    '''
+    Extract exons per transcript using gtftk
+    '''
+    input: rules.Download_HG38_v43.output
+    output: 'hg38/use_gtftk/gencode_v43_basic.exons.bed.gz'
+    conda: 'gtftk'
+    shell:
+        '''
+        gtftk select_by_key -i {input} -k tag -v basic |\
+        gtftk select_by_key -k feature -v exon --bed-format \
+                --names gene_id,transcript_id,gene_name,gene_type |\
+            bgzip -c > {output}
+
+        '''
+
+#-------------------------------------------------------------------------------
+#        Use leafviz (from leafcutter)
+#-------------------------------------------------------------------------------
+
+rule Extract_introns_with_leafviz:
+    '''
+    Extract introns per transcript using leafviz' perl script
+    '''
+    input: rules.Download_HG38_v43.output
+    output: touch('hg38/use_leafviz/done')
+    conda: 'gtftk'
+    params:
+        perl_script = 'workflow/scripts/gtf2leafcutter.pl',
+        out_prefix = 'hg38/use_leafviz/gencode_v43_basic'
+    shell:
+        '''
+        {params.perl_script} -o {params.out_prefix} <(gtftk select_by_key -i {input} -k tag -v basic)
+        '''
+
+
+
+
+
+

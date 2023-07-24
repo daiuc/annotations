@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.2.335">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Compare intron extractions using leafviz’s perl script and gtftk tools</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="compare_intron_extraction_methods_files/libs/clipboard/clipboard.min.js"></script>
+<script src="compare_intron_extraction_methods_files/libs/quarto-html/quarto.js"></script>
+<script src="compare_intron_extraction_methods_files/libs/quarto-html/popper.min.js"></script>
+<script src="compare_intron_extraction_methods_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="compare_intron_extraction_methods_files/libs/quarto-html/anchor.min.js"></script>
+<link href="compare_intron_extraction_methods_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="compare_intron_extraction_methods_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="compare_intron_extraction_methods_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="compare_intron_extraction_methods_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="compare_intron_extraction_methods_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Compare intron extractions using leafviz’s perl script and gtftk tools</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="introduction" class="level1">
+<h1>Introduction</h1>
+<p>Intron annotation files I used can come from two sources:</p>
+<ol type="1">
+<li>using leafcutter’s leafviz/gtf2leafcutter.pl script</li>
+<li>using gtftookits <code>gtftk</code> methods</li>
+</ol>
+<p>See details of extracting annotations from gencode gtf files from either of the two methods in snakefile (~/cdai/annotations/workflow/Snakefile)</p>
+<section id="conclusion" class="level2">
+<h2 class="anchored" data-anchor-id="conclusion">Conclusion</h2>
+<p>Leafcutter’s <code>leafviz/gtf2leafcutter.pl</code> produces non-standard intron coordinates. Even though the produced file is using <code>.bed</code> file extension, the file is not in correct BED format!</p>
+<ul>
+<li>The start position is in correct BED format.</li>
+<li>The end position is WRONG! The reported end value from file is 1 greater than the correct BED formatted end value!</li>
+</ul>
+<p><strong>use <code>gtftk</code>, do not use <code>gtf2leafcutter.pl</code>!</strong></p>
+</section>
+<section id="details" class="level2">
+<h2 class="anchored" data-anchor-id="details">Details</h2>
+<p>see below: …</p>
+<div class="cell" data-execution_count="16">
+<div class="cell-output cell-output-display" data-execution_count="16">
+<pre><code>'/project2/yangili1/cdai/annotations'</code></pre>
+</div>
+</div>
+</section>
+<section id="introns-from-gtftk" class="level2">
+<h2 class="anchored" data-anchor-id="introns-from-gtftk">Introns from gtftk</h2>
+<div class="cell" data-execution_count="21">
+<div class="cell-output cell-output-display" data-execution_count="21">
+
+<div>
+
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>chrom</th>
+      <th>start</th>
+      <th>end</th>
+      <th>name</th>
+      <th>score</th>
+      <th>strand</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>1</th>
+      <td>chr1</td>
+      <td>12721</td>
+      <td>13220</td>
+      <td>intron|ENSG00000290825.1|ENST00000456328.2|DDX...</td>
+      <td>2</td>
+      <td>+</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="21">
+<pre><code>(486009, 6)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="23">
+<div class="cell-output cell-output-display" data-execution_count="23">
+
+<div>
+
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>chrom</th>
+      <th>start</th>
+      <th>end</th>
+      <th>gname</th>
+      <th>gid</th>
+      <th>strand</th>
+      <th>tid</th>
+      <th>score</th>
+      <th>gene_type</th>
+      <th>tags</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>1</th>
+      <td>chrX</td>
+      <td>100635252</td>
+      <td>100635558</td>
+      <td>TSPAN6</td>
+      <td>ENSG00000000003.15</td>
+      <td>-</td>
+      <td>ENST00000373020.9</td>
+      <td>2</td>
+      <td>protein_coding</td>
+      <td>basic|Ensembl_canonical|MANE_Select|appris_pri...</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="23">
+<pre><code>(486009, 10)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="37">
+<div class="cell-output cell-output-display" data-execution_count="37">
+
+<div>
+
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>chrom</th>
+      <th>start</th>
+      <th>end</th>
+      <th>name</th>
+      <th>score</th>
+      <th>strand</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>chr1</td>
+      <td>244051444</td>
+      <td>244053787</td>
+      <td>intron|ENSG00000179456.12|ENST00000358704.4|ZB...</td>
+      <td>1</td>
+      <td>+</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>chr1</td>
+      <td>244048993</td>
+      <td>244053787</td>
+      <td>intron|ENSG00000179456.12|ENST00000622512.1|ZB...</td>
+      <td>1</td>
+      <td>+</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+<section id="introns-from-leafcutter-perl-script" class="level2">
+<h2 class="anchored" data-anchor-id="introns-from-leafcutter-perl-script">Introns from leafcutter perl script</h2>
+<div class="cell" data-execution_count="38">
+<div class="cell-output cell-output-display" data-execution_count="38">
+
+<div>
+
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>chrom</th>
+      <th>start</th>
+      <th>end</th>
+      <th>gname</th>
+      <th>gid</th>
+      <th>strand</th>
+      <th>tid</th>
+      <th>score</th>
+      <th>gene_type</th>
+      <th>tags</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>chr1</td>
+      <td>244051444</td>
+      <td>244053788</td>
+      <td>ZBTB18</td>
+      <td>ENSG00000179456.12</td>
+      <td>+</td>
+      <td>ENST00000358704.4</td>
+      <td>1</td>
+      <td>protein_coding</td>
+      <td>basic|Ensembl_canonical|MANE_Select|appris_pri...</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>chr1</td>
+      <td>244048993</td>
+      <td>244053788</td>
+      <td>ZBTB18</td>
+      <td>ENSG00000179456.12</td>
+      <td>+</td>
+      <td>ENST00000622512.1</td>
+      <td>1</td>
+      <td>protein_coding</td>
+      <td>basic|appris_alternative_1</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+<section id="comparison-notes" class="level2">
+<h2 class="anchored" data-anchor-id="comparison-notes">Comparison notes:</h2>
+<ol type="1">
+<li>Notice for each gene, the number of introns from either method are the same.</li>
+<li>gtftk produced introns follow correct BED format, however, leafcutter produced results do not follow correct BEDformat.
+<ul>
+<li>Specifically, leafcutter produced introns have the <strong>same start coordinate, but an increase by 1 end coordinate</strong>.</li>
+</ul></li>
+</ol>
+</section>
+<section id="check-gtftk-produced-intron-junctions-along-with-transcript-and-exon-coordiantes" class="level2">
+<h2 class="anchored" data-anchor-id="check-gtftk-produced-intron-junctions-along-with-transcript-and-exon-coordiantes">Check gtftk produced intron junctions, along with transcript and exon coordiantes</h2>
+<ol type="1">
+<li>example for ZBTB18 shows the intron for transcript 704.4 is from …444(close) to …787(open), while first exons ends at …444(open) and the second exon starts from …787 (close).</li>
+<li>similarly the second intron is also correct, considering all transcript, exons, and introns are strictly BED format.</li>
+</ol>
+<div class="cell" data-execution_count="43">
+<div class="cell-output cell-output-stdout">
+<pre><code>chr1    244051282   244057476   ENSG00000179456.12|ENST00000358704.4|ZBTB18|protein_coding  .   +
+chr1    244048938   244057472   ENSG00000179456.12|ENST00000622512.1|ZBTB18|protein_coding  .   +</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="44">
+<div class="cell-output cell-output-stdout">
+<pre><code>chr1    244051282   244051444   ENSG00000179456.12|ENST00000358704.4|ZBTB18|protein_coding  .   +
+chr1    244053787   244057476   ENSG00000179456.12|ENST00000358704.4|ZBTB18|protein_coding  .   +
+chr1    244048938   244048993   ENSG00000179456.12|ENST00000622512.1|ZBTB18|protein_coding  .   +
+chr1    244053787   244057472   ENSG00000179456.12|ENST00000622512.1|ZBTB18|protein_coding  .   +</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="46">
+<div class="cell-output cell-output-display" data-execution_count="46">
+
+<div>
+
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>chrom</th>
+      <th>start</th>
+      <th>end</th>
+      <th>name</th>
+      <th>score</th>
+      <th>strand</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>chr1</td>
+      <td>244051444</td>
+      <td>244053787</td>
+      <td>intron|ENSG00000179456.12|ENST00000358704.4|ZB...</td>
+      <td>1</td>
+      <td>+</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>chr1</td>
+      <td>244048993</td>
+      <td>244053787</td>
+      <td>intron|ENSG00000179456.12|ENST00000622512.1|ZB...</td>
+      <td>1</td>
+      <td>+</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+<section id="check-leafcutter-produced-intron-junctions-along-with-transcript-and-exon-coordiantes" class="level2">
+<h2 class="anchored" data-anchor-id="check-leafcutter-produced-intron-junctions-along-with-transcript-and-exon-coordiantes">Check leafcutter produced intron junctions, along with transcript and exon coordiantes</h2>
+<ol type="1">
+<li>exons from leafcutter are 1 based both close format (like VCF or gtf)</li>
+<li>introns have non-standard coordinates! (<strong>start is 0 based close, but end is non-standard: end appears to be BED-formatted-end + 1</strong>)</li>
+</ol>
+<div class="cell" data-execution_count="47">
+<div class="cell-output cell-output-stdout">
+<pre><code>chr1    244051282   244057476   ENSG00000179456.12|ENST00000358704.4|ZBTB18|protein_coding  .   +
+chr1    244048938   244057472   ENSG00000179456.12|ENST00000622512.1|ZBTB18|protein_coding  .   +</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="51">
+<div class="cell-output cell-output-stdout">
+<pre><code>chr1    244048939   244048993   +   ZBTB18
+chr1    244053788   244057472   +   ZBTB18
+chr1    244051283   244051444   +   ZBTB18
+chr1    244053788   244057476   +   ZBTB18</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="53">
+<div class="cell-output cell-output-stdout">
+<pre><code>chr1    244051444   244053788   ZBTB18  ENSG00000179456.12  +   ENST00000358704.4   1   protein_coding  basic|Ensembl_canonical|MANE_Select|appris_principal_4|CCDS
+chr1    244048993   244053788   ZBTB18  ENSG00000179456.12  +   ENST00000622512.1   1   protein_coding  basic|appris_alternative_1</code></pre>
+</div>
+</div>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

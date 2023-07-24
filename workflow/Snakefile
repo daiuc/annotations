@@ -1,13 +1,24 @@
 '''
 Rules to generate annotation files
+
+
 '''
+
+
+wildcard_constraints:
+    version = 'v43|v37'
 
 
 #-------------------------------------------------------------------------------
 #        Download GTF
 #-------------------------------------------------------------------------------
 
-rule Download_HG38_v43:
+gencode_urls = {
+    'v43': 'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.annotation.gtf.gz',
+    'v37': 'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_37/gencode.v37.annotation.gtf.gz'
+}
+
+rule Download_HG38:
     '''
     Comprehensive gene annotation; PRI; 
     It contains the comprehensive gene annotation on the primary assembly 
@@ -15,9 +26,9 @@ rule Download_HG38_v43:
     
     Needs external internet!
     '''
-    output: 'hg38/gencode.v43.primary_assembly.annotation.gtf.gz'
+    output: 'hg38/gencode.{version}.primary_assembly.annotation.gtf.gz'
     params:
-        url = 'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.primary_assembly.annotation.gtf.gz'
+        url = lambda wildcards: gencode_urls[wildcards.version]
     shell:
         '''
         if [[ $(hostname) =~ .*login.* ]]; then
@@ -30,58 +41,189 @@ rule Download_HG38_v43:
         '''
 
 
+
 #-------------------------------------------------------------------------------
 #        Use gtftk
 #-------------------------------------------------------------------------------
 
-rule Extract_transcripts_with_gtftk:
+
+rule Extract_genes_with_gtftk:
     '''
-    Extract transcripts using gtftk
-    require tag "basic"
+    Extract genes using gtftk
+    the basic tag does not apply to gene level. Only transcript level and below
     '''
-    input: rules.Download_HG38_v43.output
-    output: 'hg38/use_gtftk/gencode_v43_basic.transcript.bed.gz'
+    input: rules.Download_HG38.output
+    output: 'hg38/use_gtftk/gencode_{version}_all.genes.bed.gz'
     conda: 'gtftk'
     shell:
         '''
-        gtftk select_by_key -i {input} -k tag -v basic |\
-            gtftk select_by_key -k feature -v transcript --bed-format \
-                --names gene_id,transcript_id,gene_name,gene_type |\
+        gtftk select_by_key -i {input} -k feature -v gene --bed-format \
+                --names gene_id,gene_name,gene_type |\
             bgzip -c > {output}
         '''
 
 
-rule Extract_introns_with_gtftk:
+#-------------------------------------------------------------------------------
+#        Extract productive features
+#-------------------------------------------------------------------------------
+
+
+rule Extract_productive_transcript_with_gtftk:
     '''
-    Extract introns per transcript using gtftk
-    require tag "basic"
+    Extract productive transcripts. Productive requires:
+        transcript_type \"protein_coding\" &&
+        (tag \"basic\")|(tag \"mRNA_start_NF\")|(tag \"mRNA_end_NF\")
     '''
-    input: rules.Download_HG38_v43.output
-    output: 'hg38/use_gtftk/gencode_v43_basic.intron_by_transcript.bed.gz'
+    input: rules.Download_HG38.output
+    output: 'hg38/use_gtftk/gencode_{version}_productive.transcript.bed.gz'
     conda: 'gtftk'
     shell:
         '''
-        gtftk select_by_key -i {input} -k tag -v basic |\
-            gtftk intronic --by-transcript -n gene_id,transcript_id,gene_name,gene_type |\
-            bgzip -c > {output}
+        awk -F "\t" ' ($3 ~ /transcript/) && \
+                      ($9 ~ /transcript_type \"protein_coding\"/) && \
+                      ($9 ~ /(tag \"basic\")|(tag \"mRNA_start_NF\")|(tag \"mRNA_end_NF\")|(tag \"cds_start_NF\")|(tag \"cds_end_NF\")/) \
+                    ' <(zcat {input}) |\
+        gtftk select_by_key -k feature -v transcript --bed-format \
+                --names gene_id,transcript_id,gene_name |\
+        uniq |\
+        bgzip -c > {output}
         '''
 
 
-rule Extract_exons_with_gtftk:
+rule Extract_productive_introns_with_gtftk:
+    '''
+    Extract productive introns by transcript. Productive requires:
+    transcript_type \"protein_coding\" &&
+    (tag \"basic\")|(tag \"mRNA_start_NF\")|(tag \"mRNA_end_NF\")
+    '''
+    input: rules.Download_HG38.output
+    output: 'hg38/use_gtftk/gencode_{version}_productive.intron_by_transcript.bed.gz'
+    conda: 'gtftk'
+    shell:
+        '''
+        awk -F "\t" ' ($3 ~ /(transcript)|(exon)/) && \
+                      ($9 ~ /transcript_type \"protein_coding\"/) && \
+                      ($9 ~ /(tag \"basic\")|(tag \"mRNA_start_NF\")|(tag \"mRNA_end_NF\")|(tag \"cds_start_NF\")|(tag \"cds_end_NF\")/) \
+                    ' <(zcat {input}) |\
+        gtftk intronic --by-transcript -n gene_id,transcript_id,gene_name |\
+        uniq |\
+        bgzip -c > {output}
+        '''
+
+
+rule Combine_V37_V43_productive_introns:
+    '''
+    Combine productive introns from gencode v37 and v43
+    Output an anotation file with 5 columns, chrom, BEDstart, BEDend, strand, label(productive)
+    '''
+    input: expand('hg38/use_gtftk/gencode_{VERSION}_productive.intron_by_transcript.bed.gz', VERSION=['v37', 'v43'])
+    output: 'hg38/use_gtftk/gencode_v43_plus_v37_productive.intron_by_transcript_BEDlike.txt.gz' # BED format coordinates, tab delimited text file
+    shell:
+        '''
+        awk -F "\t" 'BEGIN {{OFS="\t"}} {{label="productive"; print $1, $2, $3, $6, label}}' <(zcat {input}) |\
+        sort -k1V -k2n -k3n |\
+        uniq |\
+        bgzip -c > {output}
+        '''
+
+
+
+#-------------------------------------------------------------------------------
+#        Extract basic features
+#-------------------------------------------------------------------------------
+
+rule Extract_basic_exons_with_gtftk:
     '''
     Extract exons per transcript using gtftk
+    require tag "basic"
     '''
-    input: rules.Download_HG38_v43.output
-    output: 'hg38/use_gtftk/gencode_v43_basic.exons.bed.gz'
+    input: rules.Download_HG38.output
+    output: 'hg38/use_gtftk/gencode_{version}_basic.exons.bed.gz'
     conda: 'gtftk'
     shell:
         '''
         gtftk select_by_key -i {input} -k tag -v basic |\
         gtftk select_by_key -k feature -v exon --bed-format \
-                --names gene_id,transcript_id,gene_name,gene_type |\
+                --names gene_id,transcript_id,gene_name,gene_type,transcript_type |\
             bgzip -c > {output}
-
         '''
+
+
+
+
+#-------------------------------------------------------------------------------
+#        Extract ALL features
+#-------------------------------------------------------------------------------
+
+
+rule Extract_all_transcripts_with_gtftk:
+    '''
+    Extract transcripts using gtftk
+    DO NOT require tag "basic"
+    '''
+    input: rules.Download_HG38.output
+    output: 'hg38/use_gtftk/gencode_{version}_all.transcript.bed.gz'
+    conda: 'gtftk'
+    shell:
+        '''
+        gtftk select_by_key -i {input} -k feature -v transcript --bed-format \
+                --names gene_id,transcript_id,gene_name,gene_type,transcript_type |\
+            bgzip -c > {output}
+        '''
+
+
+rule Extract_all_introns_with_gtftk:
+    '''
+    Extract introns per transcript using gtftk
+    DO NOT require tag "basic"
+    '''
+    input: rules.Download_HG38.output
+    output: 'hg38/use_gtftk/gencode_{version}_all.intron_by_transcript.bed.gz'
+    conda: 'gtftk'
+    shell:
+        '''
+        gtftk intronic -i {input} --by-transcript \
+            --names gene_id,transcript_id,gene_name,gene_type,transcript_type |\
+            bgzip -c > {output}
+        '''
+
+
+rule Extract_all_exons_with_gtftk:
+    '''
+    Extract exons per transcript using gtftk
+    DO NOT require tag "basic"
+    '''
+    input: rules.Download_HG38.output
+    output: 'hg38/use_gtftk/gencode_{version}_all.exons.bed.gz'
+    conda: 'gtftk'
+    shell:
+        '''
+        gtftk select_by_key -i {input} -k feature -v exon --bed-format \
+                --names gene_id,transcript_id,gene_name,gene_type,transcript_type |\
+            bgzip -c > {output}
+        '''
+
+
+
+
+#-------------------------------------------------------------------------------
+#        NMD specific introns
+#-------------------------------------------------------------------------------
+
+# rule Extract_NMD_introns:
+#     '''
+#     Extract NMD specific introns by transcript
+#     '''
+#     input: rules.Download_HG38.output
+#     output: 'hg38/use_gtftk/gencode_{version}.NMD-specific.introns_by_transcript.bed.gz'
+#     params:
+#         non
+#     conda: 'gtftk'
+#     shell:
+#         '''
+        
+#         '''
+
 
 #-------------------------------------------------------------------------------
 #        Use leafviz (from leafcutter)
@@ -91,12 +233,12 @@ rule Extract_introns_with_leafviz:
     '''
     Extract introns per transcript using leafviz' perl script
     '''
-    input: rules.Download_HG38_v43.output
+    input: rules.Download_HG38.output
     output: touch('hg38/use_leafviz/done')
     conda: 'gtftk'
     params:
         perl_script = 'workflow/scripts/gtf2leafcutter.pl',
-        out_prefix = 'hg38/use_leafviz/gencode_v43_basic'
+        out_prefix = 'hg38/use_leafviz/gencode_{version}_basic'
     shell:
         '''
         {params.perl_script} -o {params.out_prefix} <(gtftk select_by_key -i {input} -k tag -v basic)
@@ -104,6 +246,50 @@ rule Extract_introns_with_leafviz:
 
 
 
+
+
+#-------------------------------------------------------------------------------
+#        Use UCSC table browser
+#-------------------------------------------------------------------------------
+
+# Use the following steps to download annotation files from UCSC table browser:
+# 1. go to Tools -> Table Browser
+# 2. select Human, group: Genes and Gene Predictions
+# 3. select track: GENCODE V43
+# 4. select table: knownGene
+# 5. select region: genome
+# 6. select output format: BED, specify file name
+# 7. click get output to next screen
+# 8. select whole gene, exons (incl. UTR), introns, 5'UTR, 3'UTR, CDS, etc.
+
+
+rule Extract_protein_coding_gtf:
+    input: rules.Download_HG38.output
+    output: 
+        gtf = 'hg38/gencode.{version}.primary_assembly_proteinOnly.annotation.gtf.gz',
+        gene = 'hg38/use_ucsc_table_browser/gencode.{version}.primary_assembly_proteinOnly.annotation.gene.bed.gz',
+        transcript = 'hg38/use_ucsc_table_browser/gencode.{version}.primary_assembly_proteinOnly.annotation.transcript.bed.gz'
+    conda: 'gtftk'
+    shell:
+        '''
+        gtftk select_by_key -i {input} -k gene_type -v protein_coding |\
+        bgzip -c > {output.gtf}
+
+        gtftk select_by_key -i {output.gtf} -k feature -v gene \
+                --bed-format --names gene_id,gene_name |\
+        bgzip -c > {output.gene}
+        
+        gtftk select_by_key -i {output.gtf} -k feature -v transcript \
+                --bed-format --names gene_id,gene_name,transcript_id |\
+        bgzip -c > {output.transcript}
+        '''
+
+# Next use workflow/MakeProteinOnlyFeatureBedFiles.ipynb to generate the 
+# following files - all are from protein coding genes only:
+# hg38/use_ucsc_table_browser/gencode.v43_intron_proteinOnly.bed
+# hg38/use_ucsc_table_browser/gencode.v43_UTR5p_proteinOnly.bed
+# hg38/use_ucsc_table_browser/gencode.v43_UTR3p_proteinOnly.bed
+# hg38/use_ucsc_table_browser/gencode.v43_codingExon_proteinOnly.bed
 
 
 
